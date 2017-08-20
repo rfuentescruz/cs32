@@ -20,26 +20,23 @@
 #define STATUS_STUDENT_NAME 41
 
 /** ----------------- DECLARATIONS ----------------- **/
-typedef struct Student Student;
+typedef struct Course Course;
+
+typedef struct StudentNode StudentNode;
 typedef struct StudentList StudentList;
 
-typedef struct Course Course;
+typedef struct CourseNode CourseNode;
 typedef struct CourseList CourseList;
 
-typedef struct CourseConflict CourseConflict;
-typedef struct CourseConflictList CourseConflictList;
-
+Course *create_course(char[NAME_LENGTH]);
 void parse_courses(CourseList *);
 void check_course_conflicts(CourseList *);
 
-void free_courses(CourseList *);
-void push_course(CourseList *, char[NAME_LENGTH]);
+void free_course_list(CourseList *, bool);
+void push_course(CourseList *, Course *);
 
 void push_student(StudentList *, char[NAME_LENGTH]);
 void free_students(StudentList *);
-
-void push_course_conflict(CourseConflictList *, Course *);
-void free_course_conflicts(CourseConflictList *);
 
 /** ----------------- DEFINITIONS ----------------- **/
 struct Course {
@@ -47,32 +44,27 @@ struct Course {
     int schedule;
 
     StudentList *students;
-    CourseConflictList *conflicts;
-    Course *next;
+    CourseList *conflicts;
 };
 
-struct CourseConflict {
+struct CourseNode {
     Course *course;
-    CourseConflict *next;
+    CourseNode *next;
 };
 
-struct Student {
+struct StudentNode {
     char name[NAME_LENGTH + 1]; // Including the terminating NULL byte
-    Student *next;
+    StudentNode *next;
 };
 
 struct CourseList {
-    Course *head;
-    Course *tail;
+    CourseNode *head;
+    CourseNode *tail;
     int len;
 };
 
-struct CourseConflictList {
-    CourseConflict *head;
-};
-
 struct StudentList {
-    Student *head;
+    StudentNode *head;
 };
 
 int main(int argc, char *argv[]) {
@@ -84,34 +76,35 @@ int main(int argc, char *argv[]) {
     parse_courses(courses);
     check_course_conflicts(courses);
 
-    Course *c = courses->head;
-    CourseConflict *cc = NULL;
-    Student *s = NULL;
+    CourseNode *node = courses->head;
+    Course *course = NULL;
+    StudentNode *s = NULL;
 
-    while (c != NULL) {
-        printf("%s:", c->name);
-        if (c->conflicts != NULL) {
+    while (node != NULL) {
+        course = node->course;
+        printf("%s:", course->name);
+        if (course->conflicts != NULL) {
             printf(" Conflicts - ");
-            cc = c->conflicts->head;
-            while (cc != NULL) {
-                printf("%s ", cc->course->name);
-                cc = cc->next;
+            CourseNode *conflict_node = course->conflicts->head;
+            while (conflict_node != NULL) {
+                printf("%s ", conflict_node->course->name);
+                conflict_node = conflict_node->next;
             }
         }
         printf(" \n");
 
-        if (c->students != NULL) {
-            s = c->students->head;
+        if (course->students != NULL) {
+            s = course->students->head;
             while (s != NULL) {
                 printf("  %s\n", s->name);
                 s = s->next;
             }
         }
 
-        c = c->next;
+        node = node->next;
     }
 
-    free_courses(courses);
+    free_course_list(courses, true);
 }
 
 void parse_courses(CourseList *courses) {
@@ -122,7 +115,7 @@ void parse_courses(CourseList *courses) {
 
     memset(name, '\0', NAME_LENGTH);
 
-    Course *course_index = NULL;
+    CourseNode *course_index = NULL;
 
     while ((c = fgetc(stdin)) != EOF) {
         if (status == STATUS_SECTION_COURSE && c == '(') {
@@ -136,7 +129,7 @@ void parse_courses(CourseList *courses) {
                 name[name_index] = c;
                 name_index++;
             } else {
-                push_course(courses, name);
+                push_course(courses, create_course(name));
             }
 
             if (c == ',') {
@@ -161,7 +154,7 @@ void parse_courses(CourseList *courses) {
                 name[name_index] = c;
                 name_index++;
             } else {
-                push_student(course_index->students, name);
+                push_student(course_index->course->students, name);
             }
 
             if (c == ',') {
@@ -173,24 +166,47 @@ void parse_courses(CourseList *courses) {
     }
 }
 
+Course *create_course(char name[NAME_LENGTH]) {
+    Course *c = malloc(sizeof(Course));
+
+    c->schedule = 0;
+    memset(c->name, '\0', NAME_LENGTH + 1);
+    strncpy(c->name, name, NAME_LENGTH);
+
+    c->students = malloc(sizeof(StudentList));
+    c->students->head = NULL;
+
+    c->conflicts = malloc(sizeof(CourseList));
+    c->conflicts->head = NULL;
+    c->conflicts->tail = NULL;
+
+    return c;
+}
+
 void check_course_conflicts(CourseList *courses) {
-    Course *current = courses->head;
-    Course *check = NULL;
+    if (courses->head == NULL) {
+        return;
+    }
+
+    CourseNode *current = courses->head;
+    CourseNode *next = NULL;
     bool conflict = false;
 
     while (current != NULL) {
-        check = current->next;
+        next = current->next;
 
-        while (check != NULL) {
-            Student *s1 = current->students->head;
-            Student *s2 = NULL;
+        while (next != NULL) {
+            Course *c = current->course;
+
+            StudentNode *s1 = c->students->head;
+            StudentNode *s2 = NULL;
             conflict = false;
 
             while (!conflict && s1 != NULL) {
                 conflict = false;
-                s2 = check->students->head;
+                s2 = next->course->students->head;
                 while (!conflict && s2 != NULL) {
-                    // printf("(%s) %s == (%s) %s\n", current->name, s1->name, check->name, s2->name);
+                    // printf("(%s) %s == (%s) %s\n", current->name, s1->name, next->name, s2->name);
                     if (strcasecmp(s1->name, s2->name) == 0) {
                         conflict = true;
                     }
@@ -200,30 +216,21 @@ void check_course_conflicts(CourseList *courses) {
             }
 
             if (conflict) {
-                push_course_conflict(current->conflicts, check);
-                push_course_conflict(check->conflicts, current);
+                push_course(c->conflicts, next->course);
+                push_course(next->course->conflicts, c);
             }
 
-            check = check->next;
+            next = next->next;
         }
 
         current = current->next;
     }
 }
 
-void push_course(CourseList *list, char name[NAME_LENGTH]) {
-    Course *c = malloc(sizeof(Course));
-    c->schedule = 0;
+void push_course(CourseList *list, Course *course) {
+    CourseNode *c = malloc(sizeof(CourseNode));
+    c->course = course;
     c->next = NULL;
-
-    memset(c->name, '\0', NAME_LENGTH + 1);
-    strncpy(c->name, name, NAME_LENGTH);
-
-    c->students = malloc(sizeof(StudentList));
-    c->students->head = NULL;
-
-    c->conflicts = malloc(sizeof(CourseConflictList));
-    c->conflicts->head = NULL;
 
     if (list->head == NULL) {
         list->head = c;
@@ -239,7 +246,7 @@ void push_course(CourseList *list, char name[NAME_LENGTH]) {
 }
 
 void push_student(StudentList *list, char name[NAME_LENGTH]) {
-    Student *s = malloc(sizeof(Student));
+    StudentNode *s = malloc(sizeof(StudentNode));
     memset(s->name, '\0', NAME_LENGTH + 1);
     strncpy(s->name, name, NAME_LENGTH);
 
@@ -247,39 +254,26 @@ void push_student(StudentList *list, char name[NAME_LENGTH]) {
     list->head = s;
 }
 
-void push_course_conflict(CourseConflictList *list, Course *course) {
-    CourseConflict *s = malloc(sizeof(CourseConflict));
-    s->course = course;
-    s->next = list->head;
-    list->head = s;
+void free_course(Course *c) {
+    free_students(c->students);
+    // Free the list nodes but do not free the course items themselves
+    free_course_list(c->conflicts, false);
+    free(c);
 }
 
-void free_courses(CourseList *list) {
+void free_course_list(CourseList *list, bool free_course_object) {
     if (list == NULL) {
         return;
     }
 
-    Course *temp = NULL;
+    CourseNode *temp = NULL;
 
     while (list->head != NULL) {
         temp = list->head;
         list->head = temp->next;
-        free_students(temp->students);
-        free_course_conflicts(temp->conflicts);
-        free(temp);
-    }
-    free(list);
-}
-
-void free_course_conflicts(CourseConflictList *list) {
-    if (list == NULL) {
-        return;
-    }
-
-    CourseConflict *temp = NULL;
-    while (list->head != NULL) {
-        temp = list->head;
-        list->head = temp->next;
+        if (free_course_object) {
+            free_course(temp->course);
+        }
         free(temp);
     }
     free(list);
@@ -289,7 +283,7 @@ void free_students(StudentList *list) {
     if (list == NULL) {
         return;
     }
-    Student *temp = NULL;
+    StudentNode *temp = NULL;
     while (list->head != NULL) {
         temp = list->head;
         list->head = temp->next;
