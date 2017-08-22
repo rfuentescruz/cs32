@@ -238,7 +238,11 @@ void check_course_conflicts(CourseList *courses) {
             while (s1 != NULL) {
                 s2 = c_next->students->head;
                 while (s2 != NULL) {
-                    if (strncmp(s1->name, s2->name, NAME_LENGTH) == 0) {
+                    if (
+                        s1->name[0] == s2->name[0] &&
+                        s1->name[1] == s2->name[1] &&
+                        s1->name[3] == s2->name[3]
+                    ) {
                         conflict = true;
                         break;
                     }
@@ -319,7 +323,9 @@ void push_course(CourseList *list, Course *course) {
 void push_student(StudentList *list, char name[NAME_LENGTH]) {
     StudentNode *s = malloc(sizeof(StudentNode));
     memset(s->name, '\0', NAME_LENGTH + 1);
-    strncpy(s->name, name, NAME_LENGTH);
+    s->name[0] = name[0];
+    s->name[1] = name[1];
+    s->name[2] = name[2];
 
     s->next = list->head;
     list->head = s;
