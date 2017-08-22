@@ -63,7 +63,6 @@ struct StudentNode {
 struct CourseList {
     CourseNode *head;
     CourseNode *tail;
-    int len;
 };
 
 struct StudentList {
@@ -76,7 +75,6 @@ int main(int argc, char *argv[]) {
 
     for (int i = 0; i < num_cases; i++) {
         CourseList *courses = (CourseList *) malloc(sizeof(CourseList));
-        courses->len = 0;
         courses->head = NULL;
         courses->tail = NULL;
 
@@ -316,7 +314,6 @@ void push_course(CourseList *list, Course *course) {
         list->tail->next = c;
         list->tail = c;
     }
-    list->len++;
 }
 
 void push_student(StudentList *list, char name[NAME_LENGTH]) {
