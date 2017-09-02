@@ -31,6 +31,7 @@ int main(int argc, char *argv[]) {
             case_number = n;
         }
 
+        // We're starting to parse a case or we're in the middle of parsing one
         if (case_number) {
             int case_status = parse_case(line, stack);
 
@@ -49,6 +50,7 @@ int main(int argc, char *argv[]) {
     empty(stack);
     free(stack);
 
+    // We cool? We cool.
     return 0;
 }
 
@@ -64,7 +66,7 @@ int parse_case(char *line, Stack *stack) {
                 (match == '{' && c != '}') ||
                 (match == '[' && c != ']') ||
                 (match == '(' && c != ')') ||
-                match == '\0' // Stack pop() returns null if empty
+                match == EOF // Stack pop() returns EOF if empty
             ) {
                 return -1;
             }
@@ -84,19 +86,14 @@ void push(Stack *stack, char c) {
     Node *node = malloc(sizeof(Node));
     node->data = c;
 
-    if (stack->head != NULL) {
-        node->next = stack->head;
-    } else {
-        node->next = NULL;
-    }
-
+    node->next = stack->head;
     stack->head = node;
 }
 
 char pop(Stack *stack) {
     char c;
     if (stack->head == NULL) {
-        return '\0';
+        return EOF;
     }
 
     Node *tmp = stack->head;
