@@ -5,13 +5,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define DIGIT_LENGTH 9
+
 typedef struct OperatorNode {
     char data;
     struct OperatorNode *next;
 } OperatorNode;
 
 typedef struct N {
-    int value;
+    double value;
     struct N *next;
 } N;
 
@@ -28,15 +30,14 @@ char pop(OperatorStack *);
 char peek(OperatorStack *);
 void empty(OperatorStack *);
 
-void push_n(Numbers *, int);
-int pop_n(Numbers *);
+void push_n(Numbers *, double);
+double pop_n(Numbers *);
 void empty_n(Numbers *);
 
 int icp(char);
 int isp(char);
 
 void evaluate(Numbers *, char);
-int pow_i(int, int);
 
 int main(int argc, char *argv[]) {
     char c;
@@ -46,28 +47,31 @@ int main(int argc, char *argv[]) {
     Numbers *numbers = malloc(sizeof(Numbers));
     numbers->head = NULL;
 
-    char *digits = malloc((int) log10(INT_MAX) + 2);
+    char *digits = malloc(DIGIT_LENGTH + 1);
     char *d = digits;
+
+    int num_cases = 0;
+    scanf("%d\n", &num_cases);
 
     while ((c = getchar()) != EOF) {
         if (operators->head == NULL) {
             push(operators, '(');
         }
 
-        if (isdigit(c)) {
+        if (isdigit(c) || c == '.') {
             *d = c;
             d++;
         } else {
             *d = '\0';
-            int n = 0;
+            double n = 0;
 
             // We parsed a digit!
             if (d != digits) {
-                n = atoi(digits);
+                n = atof(digits);
                 // Reset the digit pointer
                 d = digits;
-                #if !DEBUG
-                    printf("{%d}", n);
+                #if POSTFIX
+                    printf("{%f}", n);
                 #endif
                 push_n(numbers, n);
             }
@@ -78,7 +82,7 @@ int main(int argc, char *argv[]) {
                     push(operators, c);
                 } else if (c == ')' || c == '\n') {
                     while ((o = pop(operators)) != '(') {
-                        #if !DEBUG
+                        #if POSTFIX
                             printf("%c", o);
                         #endif
                         evaluate(numbers, o);
@@ -86,7 +90,7 @@ int main(int argc, char *argv[]) {
                 } else {
                     while (icp(c) < isp(peek(operators))) {
                         o = pop(operators);
-                        #if !DEBUG
+                        #if POSTFIX
                             printf("%c", o);
                         #endif
                         evaluate(numbers, o);
@@ -95,9 +99,9 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (c == '\n') {
-                    int result = pop_n(numbers);
+                    double result = pop_n(numbers);
                     if (result != EOF) {
-                        printf(" = %d\n", result);
+                        printf("%.4f\n", result);
                     }
                     empty_n(numbers);
                     empty(operators);
@@ -151,8 +155,8 @@ int isp(char operator) {
 }
 
 void evaluate(Numbers *n, char op) {
-    int b = pop_n(n);
-    int a = pop_n(n);
+    double b = pop_n(n);
+    double a = pop_n(n);
     if (a == EOF || b == EOF) {
         return;
     }
@@ -160,41 +164,29 @@ void evaluate(Numbers *n, char op) {
     if (op == '+') {
         push_n(n, a + b);
         #if DEBUG
-            printf("%d %c %d = %d\n", a, op, b, a + b);
+            printf("%f %c %f = %f\n", a, op, b, a + b);
         #endif
     } else if (op == '-') {
         push_n(n, a - b);
         #if DEBUG
-            printf("%d %c %d = %d\n", a, op, b, a - b);
+            printf("%f %c %f = %f\n", a, op, b, a - b);
         #endif
     } else if (op == '*') {
         push_n(n, a * b);
         #if DEBUG
-            printf("%d %c %d = %d\n", a, op, b, a * b);
+            printf("%f %c %f = %f\n", a, op, b, a * b);
         #endif
     } else if (op == '/') {
         push_n(n, a / b);
         #if DEBUG
-            printf("%d %c %d = %d\n", a, op, b, a / b);
+            printf("%f %c %f = %f\n", a, op, b, a / b);
         #endif
     } else if (op == '^') {
-        push_n(n, pow_i(a, b));
+        push_n(n, pow(a, b));
         #if DEBUG
-            printf("%d %c %d = %d\n", a, op, b, pow_i(a, b));
+            printf("%f %c %f = %f\n", a, op, b, pow(a, b));
         #endif
     }
-}
-
-int pow_i(int x, int y) {
-    int result = 1;
-    while (y > 0) {
-        if (y % 2 == 1) {
-            result *= x;
-        }
-        x *= x;
-        y /= 2;
-    }
-    return result;
 }
 
 void push(OperatorStack *stack, char c) {
@@ -233,7 +225,7 @@ void empty(OperatorStack *stack) {
     }
 }
 
-void push_n(Numbers *stack, int n) {
+void push_n(Numbers *stack, double n) {
     N *node = malloc(sizeof(N));
 
     node->value = n;
@@ -242,8 +234,8 @@ void push_n(Numbers *stack, int n) {
     stack->head = node;
 }
 
-int pop_n(Numbers *stack) {
-    int n;
+double pop_n(Numbers *stack) {
+    double n;
     if (stack->head == NULL) {
         return EOF;
     }
