@@ -241,7 +241,7 @@ void check_course_conflicts(CourseList *courses) {
                     if (
                         s1->name[0] == s2->name[0] &&
                         s1->name[1] == s2->name[1] &&
-                        s1->name[3] == s2->name[3]
+                        s1->name[2] == s2->name[2]
                     ) {
                         conflict = true;
                         break;
