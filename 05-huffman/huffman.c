@@ -9,13 +9,17 @@ typedef struct Node {
     int freq;
     struct Node *left;
     struct Node *right;
-    int tag;
 } Node;
 
 typedef struct PriorityQueue {
     Node *heap[PQ_HEAP_MAX_SIZE];
     int size;
 } PriorityQueue;
+
+typedef struct PrefixStack {
+    char stack[52];
+    int head;
+} PrefixStack;
 
 Node *new_node(char c, int freq);
 void destroy_node(Node *n);
@@ -25,6 +29,7 @@ void pq_insert(PriorityQueue *pq, Node *);
 Node *pq_extract(PriorityQueue *pq);
 void pq_destroy(PriorityQueue *pq);
 
+void preorder_prefixes(Node *root, PrefixStack *prefixes);
 void heapify(PriorityQueue *pq, int root);
 void heapsort(PriorityQueue *pq);
 
@@ -52,6 +57,7 @@ int main(int argc, char *argv[]) {
             freq = (float) map[i] / char_count;
             freq *= 10000; // 100.00
             if (map[i]) {
+                printf("%c: %d\n", (char) i, map[i]);
                 Node *n = new_node((char) i, (int) freq);
                 pq_insert(pq, n);
             }
@@ -60,15 +66,24 @@ int main(int argc, char *argv[]) {
 
     while (pq->size > 1) {
         Node *left = pq_extract(pq);
-        left->tag = 0;
+        printf("Left: (%c) %.2f\n", left->c, left->freq / 100.0);
         Node *right = pq_extract(pq);
-        right->tag = 1;
+        printf("Right: (%c) %.2f\n", right->c, right->freq / 100.0);
         Node *n = new_node('\0', left->freq + right->freq);
         n->left = left;
         n->right = right;
         pq_insert(pq, n);
     }
     Node *n = pq_extract(pq);
+
+    PrefixStack *prefixes = malloc(sizeof(PrefixStack));
+    for (int i = 0; i < PQ_HEAP_MAX_SIZE; i++) {
+        prefixes->stack[i] = '\0';
+    }
+    prefixes->head = -1;
+
+    preorder_prefixes(n, prefixes);
+    free(prefixes);
     destroy_node(n);
     pq_destroy(pq);
 }
@@ -79,7 +94,6 @@ Node *new_node(char c, int freq) {
     n->freq = freq;
     n->left = NULL;
     n->right = NULL;
-    n->tag = 0;
     return n;
 }
 
@@ -133,6 +147,28 @@ void destroy_node(Node *n) {
         destroy_node(n->right);
     }
     free(n);
+}
+
+void preorder_prefixes(Node *root, PrefixStack *prefixes) {
+    if (root->c != '\0') {
+        printf("%c: %s\n", root->c, prefixes->stack);
+    }
+
+    if (root->left != NULL) {
+        prefixes->head++;
+        prefixes->stack[prefixes->head] = '0';
+        preorder_prefixes(root->left, prefixes);
+        prefixes->stack[prefixes->head] = '\0';
+        prefixes->head--;
+    }
+    
+    if (root->right != NULL) {
+        prefixes->head++;
+        prefixes->stack[prefixes->head] = '1';
+        preorder_prefixes(root->right, prefixes);
+        prefixes->stack[prefixes->head] = '\0';
+        prefixes->head--;
+    }
 }
 
 void heapify(PriorityQueue *pq, int root) {
